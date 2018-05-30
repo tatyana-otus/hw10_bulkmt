@@ -22,7 +22,7 @@ set_target_properties(test_main_cli test_log_cli test_bulk_cli PROPERTIES
   COMPILE_OPTIONS -Wpedantic -Wall -Wextra
   COMPILE_DEFINITIONS BOOST_TEST_DYN_LINK
 )
-set (CMAKE_CXX_FLAGS "-fsanitize=thread")
+#set (CMAKE_CXX_FLAGS "-fsanitize=thread")
 
 target_link_libraries(test_main_cli
   ${CMAKE_THREAD_LIBS_INIT}	
