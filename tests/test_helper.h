@@ -1,4 +1,5 @@
 #include <sstream>
+#include <numeric>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/execution_monitor.hpp> 
 #include <boost/test/output_test_stream.hpp>
