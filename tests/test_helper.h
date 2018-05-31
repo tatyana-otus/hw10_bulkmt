@@ -6,10 +6,11 @@
 
 using boost::test_tools::output_test_stream;
 
-std::stringstream test_process(const char* N, const std::string& in_data, 
-                                 const std::string& out_data,                            
-                                 bool is_metrics = true, 
-                                 size_t file_th_cnt = 2)
+std::stringstream test_process(const char* N, 
+                               const std::string& in_data, 
+                               const std::string& out_data,                            
+                               bool is_metrics = true, 
+                               size_t file_th_cnt = 2)
 {
     std::stringstream iss;
     std::stringstream oss;
@@ -24,11 +25,24 @@ std::stringstream test_process(const char* N, const std::string& in_data,
 }
 
 
-/*void one_cmd1_pass(std::stringstream& err_stream)
+void check_metrics(size_t str_count, size_t cmd_count, size_t blk_count)
 {
-    std::stringstream iss;
-    std::stringstream oss;
+    BOOST_CHECK_EQUAL( cmd->str_count, str_count);
+    BOOST_CHECK_EQUAL( cmd->cmd_count, cmd_count);
+    BOOST_CHECK_EQUAL( cmd->blk_count, blk_count);
 
-    iss << "cmd1\n";
-    process("1", iss, oss, err_stream);
-}*/
+    BOOST_CHECK_EQUAL( cmd->cmd_count, data_log->cmd_count);
+    BOOST_CHECK_EQUAL( cmd->blk_count, data_log->blk_count);
+
+    BOOST_CHECK_EQUAL( cmd->cmd_count, 
+                      std::accumulate(file_log.begin(), file_log.end(), 0, 
+                                      [](int sum, auto p) {
+                                        return sum + p->cmd_count;
+                                       }));
+    BOOST_CHECK_EQUAL( cmd->blk_count, 
+                      std::accumulate(file_log.begin(), file_log.end(), 0, 
+                                     [](int sum, auto p) {
+                                        return sum + p->blk_count;
+                                      }));
+}
+

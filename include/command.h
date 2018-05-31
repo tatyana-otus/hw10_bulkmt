@@ -40,7 +40,6 @@ using queue_f_msg_type = std::queue<f_msg_type_ext>;
 queue_msg_type      msgs;
 queue_f_msg_type    file_msgs;
 
-size_t main_wait_count = 0;
 
 struct Handler
 {
@@ -48,7 +47,7 @@ struct Handler
     {   
         ++blk_count;
 
-        os << "bulk" << ": " << *(v->cbegin());
+        os << "bulk: " << *(v->cbegin());
         ++cmd_count;
         for (auto it = std::next(v->cbegin()); it != std::cend(*v); ++it){
             os << ", " << *it ;
@@ -71,7 +70,7 @@ struct Handler
 
 struct Command {
 
-    Command(size_t N_):N(N_), b_satic(true), cnt_braces(0)
+    Command(size_t N_):N(N_), braces_count(0)
     {
         for(auto& v : data) {
             v.reserve(MAX_BULK_SIZE);
@@ -116,7 +115,7 @@ struct Command {
 
             lk_ext_data.lock(); /////////////////////
             if(data_ext[idx_write] == true) { 
-                ++main_wait_count;
+               // ++main_wait_count;
                 cv_file.notify_one();
                 cv_f_empty.wait(lk_ext_data, [this](){ return !this->data_ext[idx_write]; });
             }
@@ -133,20 +132,18 @@ struct Command {
 
         ++str_count;
 
-        if(d == "{") {
-            ++cnt_braces;
-            if(b_satic == true){
-                b_satic = false;
-                blk_state = BulkState::end;
-            }            
-        }
-        else if (d == "}"){
-            --cnt_braces;
-            if(cnt_braces == 0) {
-                b_satic = true;
+        if(d == "{") {  
+            if(braces_count == 0) {
                 blk_state = BulkState::end;
             }
-            else if(cnt_braces < 0){
+            ++braces_count;        
+        }
+        else if (d == "}"){
+            --braces_count;
+            if(braces_count == 0) {
+                blk_state = BulkState::end;
+            }
+            else if(braces_count < 0){
                 throw std::invalid_argument("wrong command stream");
             }    
         }
@@ -163,7 +160,7 @@ struct Command {
 
     void on_cmd_end()
     {
-        if(b_satic == true) {
+        if(braces_count == 0){
             exec_state(BulkState::end);
         }
     }
@@ -179,7 +176,7 @@ struct Command {
                 break;
 
             case BulkState::save:
-                if((b_satic == true) && (data[idx_write].size() == N)){
+                if((braces_count == 0) && (data[idx_write].size() == N)){
                     exec_state(BulkState::end);
                 }
                 break;
@@ -205,8 +202,7 @@ private:
     std::array<bool, CIRCLE_BUFF_SIZE> data_ext;
 
     size_t N;
-    bool b_satic;
-    int cnt_braces;  
+    int braces_count; 
 
     size_t idx_write = 0;
 

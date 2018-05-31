@@ -3,9 +3,11 @@ project(test)
 find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 find_package(Threads)
 
-add_executable(test_main_cli test_main.cpp)
-add_executable(test_log_cli  test_log.cpp)
-add_executable(test_bulk_cli test_bulk.cpp)
+add_executable(test_main_cli           test_main.cpp)
+add_executable(test_log_cli            test_log.cpp)
+add_executable(test_bulk_cli           test_bulk.cpp)
+add_executable(test_metrics_cli        test_metrics.cpp)
+add_executable(test_data_integrity_cli test_data_integrity.cpp)
 
 target_include_directories(test_main_cli  PRIVATE ../include)
 target_include_directories(test_main_cli  PRIVATE ${Boost_INCLUDE_DIR})
@@ -16,13 +18,19 @@ target_include_directories(test_log_cli PRIVATE ${Boost_INCLUDE_DIR})
 target_include_directories(test_bulk_cli PRIVATE ../include)
 target_include_directories(test_bulk_cli PRIVATE ${Boost_INCLUDE_DIR})
 
-set_target_properties(test_main_cli test_log_cli test_bulk_cli PROPERTIES
+target_include_directories(test_metrics_cli PRIVATE ../include)
+target_include_directories(test_metrics_cli PRIVATE ${Boost_INCLUDE_DIR})
+
+target_include_directories(test_data_integrity_cli PRIVATE ../include)
+target_include_directories(test_data_integrity_cli PRIVATE ${Boost_INCLUDE_DIR})
+
+set_target_properties(test_main_cli test_log_cli test_bulk_cli test_metrics_cli test_data_integrity_cli PROPERTIES
   CXX_STANDARD 14
   CXX_STANDARD_REQUIRED ON
   COMPILE_OPTIONS -Wpedantic -Wall -Wextra
   COMPILE_DEFINITIONS BOOST_TEST_DYN_LINK
 )
-#set (CMAKE_CXX_FLAGS "-fsanitize=thread")
+set (CMAKE_CXX_FLAGS "-fsanitize=thread")
 
 target_link_libraries(test_main_cli
   ${CMAKE_THREAD_LIBS_INIT}	
@@ -40,8 +48,20 @@ target_link_libraries(test_bulk_cli
   ${Boost_LIBRARIES}
 )
 
+target_link_libraries(test_metrics_cli
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${Boost_LIBRARIES}
+)
+
+target_link_libraries(test_data_integrity_cli
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${Boost_LIBRARIES}
+)
+
 enable_testing()
 
-add_test(test_main        test_main_cli -t test_suite_main)
-add_test(test_bulk        test_bulk_cli -t test_suite_bulk)
-add_test(test_log         test_log_cli  -t test_suite_log)
+add_test(test_main           test_main_cli           -t test_suite_main)
+add_test(test_bulk           test_bulk_cli           -t test_suite_bulk)
+add_test(test_log            test_log_cli            -t test_suite_log)
+add_test(test_metrics        test_metrics_cli        -t test_suite_metrics)
+add_test(test_data_integrity test_data_integrity_cli -t test_suite_data_integrity)
