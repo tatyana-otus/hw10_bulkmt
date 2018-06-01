@@ -2,10 +2,17 @@
 #include <fstream>
 
 
-
 struct WriteData : public Handler
 {
     WriteData(std::ostream& es_ = std::cout):es(es_) {}
+
+    void start(void) override
+    {
+        helper_thread = std::thread(&WriteData::on_bulk_resolved, 
+                                    this,  
+                                    std::ref(file_msgs));
+    } 
+
 
     void create_bulk_file(f_msg_type& msg) 
     {
@@ -31,16 +38,14 @@ struct WriteData : public Handler
     }
 
 
-    void on_bulk_resolved_file(queue_f_msg_type &task) 
+    void on_bulk_resolved(queue_f_msg_type &task) 
     {
-
         while(!quit){
             std::unique_lock<std::mutex> lk_file(cv_m_file);
 
             cv_file.wait(lk_file, [&task, this](){ return (!task.empty() || this->quit); });
 
             if(task.empty()) break;
-
 
             auto m_ex = task.front();
 
@@ -51,13 +56,12 @@ struct WriteData : public Handler
             lk_file.unlock();
             create_bulk_file(m);
 
-            std::unique_lock<std::mutex> lk_ext_data(cv_m_data_ext);
+            std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
             *b = false;  
-            cv_f_empty.notify_one();  
-            lk_ext_data.unlock();
+            cv_data_ext.notify_one();  
         } 
 
-        std::unique_lock<std::mutex> lk_file(cv_m_file);
+        std::lock_guard<std::mutex> lk_file(cv_m_file);
         while(!task.empty()) {
             auto m_ex = task.front();
 
@@ -67,12 +71,10 @@ struct WriteData : public Handler
             task.pop();
             create_bulk_file(m);
 
-            std::unique_lock<std::mutex> lk_ext_data(cv_m_data_ext);
+            std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
             *b = false;  
-            cv_f_empty.notify_one();  
-            lk_ext_data.unlock();
-        }
-        lk_file.unlock(); 
+            cv_data_ext.notify_one();  
+        } 
     }
 
     private:
@@ -83,6 +85,13 @@ struct WriteData : public Handler
 struct PrintData : public Handler
 {
     PrintData(std::ostream& os_ = std::cout):os(os_) {}
+
+    void start(void) override
+    {
+        helper_thread = std::thread( &PrintData::on_bulk_resolved,
+                                     this, 
+                                     std::ref(msgs));
+    } 
 
 
     void on_bulk_resolved(queue_msg_type &task) 
@@ -102,14 +111,13 @@ struct PrintData : public Handler
             os << "\n";
         } 
 
-        std::unique_lock<std::mutex> lk(cv_m);
+        std::lock_guard<std::mutex> lk(cv_m);
         while(!task.empty()) {
             auto v = task.front();
             task.pop();
             stream_out(v, os);
             os << '\n';
         }
-        lk.unlock(); 
     }
 
 private:

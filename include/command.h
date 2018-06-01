@@ -22,7 +22,7 @@ std::mutex cv_m_file;
 
 std::condition_variable cv_empty;
 
-std::condition_variable cv_f_empty;
+std::condition_variable cv_data_ext;
 std::mutex cv_m_data_ext;
 
 std::mutex std_err_mx;
@@ -33,7 +33,6 @@ using p_data_type = std::shared_ptr<data_type>;
 using queue_msg_type = std::queue<p_data_type>;
 
 using f_msg_type = std::tuple<p_data_type, std::time_t, size_t>;
-
 using f_msg_type_ext   = std::tuple<f_msg_type, std::shared_ptr<bool>>;
 using queue_f_msg_type = std::queue<f_msg_type_ext>;
 
@@ -62,6 +61,16 @@ struct Handler
            <<  "\n";
     }
 
+    void stop (void) 
+    {
+        helper_thread.join();
+    } 
+
+    virtual void start(void) = 0; 
+
+
+    std::thread helper_thread;
+
     size_t blk_count = 0;
     size_t cmd_count = 0;
     std::atomic<bool> quit{false};
@@ -72,13 +81,48 @@ struct Command {
 
     Command(size_t N_):N(N_), braces_count(0)
     {
-        for(auto& v : data) {
-            v.reserve(MAX_BULK_SIZE);
+        for(size_t i = 0; i < CIRCLE_BUFF_SIZE; ++i) {
+
+            data[i].reserve(MAX_BULK_SIZE);
+            data_ext[i] = false;
+
+            data_shared_ptr[i]     = std::shared_ptr<data_type>(&data[i],     [](data_type*){});
+            data_ext_shared_ptr[i] = std::shared_ptr<bool>     (&data_ext[i], [](bool*){});
+        }
+    }
+
+
+    void start()
+    {
+        for (auto const& h : data_handler) {
+            h->start();
+        }
+    }
+
+
+    void stop()
+    {
+        for (auto const& h : data_handler) {
+            h->quit = true;
         }
 
-        for(auto& b : data_ext) {
-            b = false;
-        }      
+        std::unique_lock<std::mutex> lk(cv_m);  // without lock -fsanitize=thread hung empty test 1:10 
+        cv.notify_one();
+        lk.unlock();
+        
+        std::unique_lock<std::mutex> lk_file(cv_m_file); // without lock -fsanitize=thread hung empty test 1:10
+        cv_file.notify_all();
+        lk_file.unlock();
+
+        for (auto const& h : data_handler) {
+            h->stop();
+        }
+    }
+
+
+    void add_hanlder(std::shared_ptr<Handler> h)
+    {
+        data_handler.push_back(h);
     }
 
 
@@ -86,41 +130,62 @@ struct Command {
     {
         if(!data[idx_write].empty()) {   
 
+            data_ext[idx_write] = true;    //no need for lock
 
-            std::unique_lock<std::mutex> lk_ext_data(cv_m_data_ext);
-            data_ext[idx_write] = true;    
-            lk_ext_data.unlock();
+            set_printer_task();
+            set_logger_task();
 
-            std::unique_lock<std::mutex> lk_file(cv_m_file);
-            f_msg_type file_msg = std::make_tuple(std::shared_ptr<data_type>(&data[idx_write], [](data_type*){}), init_time, ++file_id);
-            file_msgs.push(std::make_tuple(file_msg, std::shared_ptr<bool>(&data_ext[idx_write], [](bool*){})));
-            lk_file.unlock();
-
-            cv_file.notify_one();
-
-            //-------------------------------------
-            std::unique_lock<std::mutex> lk(cv_m);
-            if(msgs.size() > (CIRCLE_BUFF_SIZE - 3)) {
-                cv.notify_one();
-                cv_empty.wait(lk, [](){ return( msgs.size() <  (CIRCLE_BUFF_SIZE / 2)); });
-            }
-            msgs.push(std::shared_ptr<data_type>(&data[idx_write], [](data_type*){}));          
-            lk.unlock();
-            cv.notify_one();
-
-            //-------
-            ++idx_write;
-            idx_write %= CIRCLE_BUFF_SIZE;
-            ++blk_count;
-
-            lk_ext_data.lock(); /////////////////////
-            if(data_ext[idx_write] == true) { 
-               // ++main_wait_count;
-                cv_file.notify_one();
-                cv_f_empty.wait(lk_ext_data, [this](){ return !this->data_ext[idx_write]; });
-            }
-            lk_ext_data.unlock(); ///////////////////
+            update_write_index();
         }       
+    }
+
+
+    void set_printer_task()
+    {
+        std::unique_lock<std::mutex> lk_file(cv_m_file);
+
+        file_msgs.push(std::make_tuple(std::make_tuple(data_shared_ptr[idx_write], 
+                                                       init_time, 
+                                                       ++file_id
+                                                       ), 
+                                       data_ext_shared_ptr[idx_write])
+                                       );                                                       
+       
+        lk_file.unlock();
+
+        cv_file.notify_one();
+    }
+
+
+    void set_logger_task()
+    {
+        std::unique_lock<std::mutex> lk(cv_m);
+
+        if(msgs.size() > (CIRCLE_BUFF_SIZE - 3)) {
+            cv.notify_one();
+            cv_empty.wait(lk, [](){ return( msgs.size() <  (CIRCLE_BUFF_SIZE / 2)); });
+        }
+        
+        msgs.push( data_shared_ptr[idx_write] );   
+
+        lk.unlock();
+
+        cv.notify_one();
+    }
+
+
+    void update_write_index()
+    {
+        ++idx_write;
+        idx_write %= CIRCLE_BUFF_SIZE;
+        ++blk_count;
+
+        std::unique_lock<std::mutex> lk_ext_data(cv_m_data_ext);
+        if(data_ext[idx_write] == true) { 
+            cv_file.notify_one();
+            cv_data_ext.wait(lk_ext_data, [this](){ return !this->data_ext[idx_write]; });
+        }
+        lk_ext_data.unlock(); 
     }
 
     
@@ -198,13 +263,17 @@ struct Command {
 
 private:
     std::time_t init_time;
-    std::array<std::vector<std::string>, CIRCLE_BUFF_SIZE> data;
-    std::array<bool, CIRCLE_BUFF_SIZE> data_ext;
+
+    std::vector<std::shared_ptr<Handler>> data_handler;
+
+    std::array<data_type,             CIRCLE_BUFF_SIZE> data;
+    std::array<p_data_type,           CIRCLE_BUFF_SIZE> data_shared_ptr;
+
+    std::array<bool,                  CIRCLE_BUFF_SIZE> data_ext;
+    std::array<std::shared_ptr<bool>, CIRCLE_BUFF_SIZE> data_ext_shared_ptr;
 
     size_t N;
     int braces_count; 
-
     size_t idx_write = 0;
-
     size_t file_id = 0;
 };

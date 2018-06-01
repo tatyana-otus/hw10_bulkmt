@@ -43,6 +43,7 @@ static void gen_static_bulk_test_output_file(const std::string& file_name,
     f.close(); 
 }
 
+
 static void compare_files(const std::string& file_name_1, const std::string& file_name_2)
 {
     std::ifstream ifs1(file_name_1);
@@ -54,9 +55,11 @@ static void compare_files(const std::string& file_name_1, const std::string& fil
     BOOST_CHECK_EQUAL_COLLECTIONS(b1, e1, b2, e2);
 }
 
+
 static void check_log_files(std::time_t init_time, int blk_num)
 {
     std::ifstream  ethalon_file {"ethalon_output.txt"};
+    BOOST_CHECK_EQUAL( ethalon_file.good(), true );
 
     int id = 1;
     std::string ethalon_line;
@@ -71,6 +74,7 @@ static void check_log_files(std::time_t init_time, int blk_num)
         if(watchdog_sec >= 10) break;
 
         std::ifstream log_file {name};
+        BOOST_CHECK_EQUAL( log_file.good(), true );
 
         std::stringstream log_buff;
         log_buff << log_file.rdbuf();
@@ -78,9 +82,9 @@ static void check_log_files(std::time_t init_time, int blk_num)
         BOOST_CHECK_EQUAL( log_buff.str(), ethalon_line );
         ++id;
     }
-    --id;
-    BOOST_CHECK_EQUAL( id, blk_num );
+    BOOST_CHECK_EQUAL( --id, blk_num );
 }
+
 
 static void run_process(int str_num, int blk_size, int file_threads_cnt)
 {
@@ -109,10 +113,7 @@ static void run_process(int str_num, int blk_size, int file_threads_cnt)
 }
 
 
-
-
 BOOST_AUTO_TEST_SUITE(test_suite_data_integrity)
-
 
 BOOST_AUTO_TEST_CASE(data_check)
 {
@@ -126,7 +127,7 @@ BOOST_AUTO_TEST_CASE(data_check)
     run_process(100, 3, 4);
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    run_process(4000000, 100, 2);
+    run_process(4000, 100, 2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -46,4 +46,3 @@ void check_metrics(size_t str_count, size_t cmd_count, size_t blk_count)
                                         return sum + p->blk_count;
                                       }));
 }
-
