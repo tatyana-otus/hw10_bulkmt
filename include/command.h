@@ -29,11 +29,13 @@ std::mutex std_err_mx;
 
 
 using data_type = std::vector<std::string>;
-using p_data_type = std::shared_ptr<data_type>;
+//using p_data_type = std::shared_ptr<data_type>;
+using p_data_type = data_type*;
 using queue_msg_type = std::queue<p_data_type>;
 
 using f_msg_type = std::tuple<p_data_type, std::time_t, size_t>;
-using f_msg_type_ext   = std::tuple<f_msg_type, std::shared_ptr<bool>>;
+//using f_msg_type_ext   = std::tuple<f_msg_type, std::shared_ptr<bool>>;
+using f_msg_type_ext   = std::tuple<f_msg_type, bool*>;
 using queue_f_msg_type = std::queue<f_msg_type_ext>;
 
 queue_msg_type      msgs;
@@ -86,8 +88,8 @@ struct Command {
             data[i].reserve(MAX_BULK_SIZE);
             data_ext[i] = false;
 
-            data_shared_ptr[i]     = std::shared_ptr<data_type>(&data[i],     [](data_type*){});
-            data_ext_shared_ptr[i] = std::shared_ptr<bool>     (&data_ext[i], [](bool*){});
+            //data_shared_ptr[i]     = std::shared_ptr<data_type>(&data[i],     [](data_type*){});
+            //data_ext_shared_ptr[i] = std::shared_ptr<bool>     (&data_ext[i], [](bool*){});
         }
     }
 
@@ -144,11 +146,11 @@ struct Command {
     {
         std::unique_lock<std::mutex> lk_file(cv_m_file);
 
-        file_msgs.push(std::make_tuple(std::make_tuple(data_shared_ptr[idx_write], 
+        file_msgs.push(std::make_tuple(std::make_tuple(&data[idx_write], //data_shared_ptr[idx_write]
                                                        init_time, 
                                                        ++file_id
                                                        ), 
-                                       data_ext_shared_ptr[idx_write])
+                                       &data_ext[idx_write]) // data_ext_shared_ptr[idx_write]
                                        );                                                       
        
         lk_file.unlock();
@@ -166,7 +168,7 @@ struct Command {
             cv_empty.wait(lk, [](){ return( msgs.size() <  (CIRCLE_BUFF_SIZE / 2)); });
         }
         
-        msgs.push( data_shared_ptr[idx_write] );   
+        msgs.push( &data[idx_write] );  //data_shared_ptr[idx_write] 
 
         lk.unlock();
 
@@ -267,10 +269,10 @@ private:
     std::vector<std::shared_ptr<Handler>> data_handler;
 
     std::array<data_type,             CIRCLE_BUFF_SIZE> data;
-    std::array<p_data_type,           CIRCLE_BUFF_SIZE> data_shared_ptr;
+    //std::array<p_data_type,           CIRCLE_BUFF_SIZE> data_shared_ptr;
 
     std::array<bool,                  CIRCLE_BUFF_SIZE> data_ext;
-    std::array<std::shared_ptr<bool>, CIRCLE_BUFF_SIZE> data_ext_shared_ptr;
+    //std::array<std::shared_ptr<bool>, CIRCLE_BUFF_SIZE> data_ext_shared_ptr;
 
     size_t N;
     int braces_count; 

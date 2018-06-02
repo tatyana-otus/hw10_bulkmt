@@ -50,14 +50,18 @@ struct WriteData : public Handler
             auto m_ex = task.front();
 
             f_msg_type m;
-            std::shared_ptr<bool> b;
+            //std::shared_ptr<bool> b;
+            bool* b;
+
             std::tie(m, b) = m_ex;
             task.pop();          
             lk_file.unlock();
+
             create_bulk_file(m);
 
             std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
-            *b = false;  
+            *b = false;
+
             cv_data_ext.notify_one();  
         } 
 
@@ -66,7 +70,8 @@ struct WriteData : public Handler
             auto m_ex = task.front();
 
             f_msg_type m;
-            std::shared_ptr<bool> b;
+            //std::shared_ptr<bool> b;
+            bool* b;
             std::tie(m, b) = m_ex;
             task.pop();
             create_bulk_file(m);
@@ -107,6 +112,7 @@ struct PrintData : public Handler
             task.pop();
             if (task.size() <  (CIRCLE_BUFF_SIZE / 2)) cv_empty.notify_one();
             lk.unlock();
+            
             stream_out(v, os);
             os << "\n";
         } 

@@ -65,7 +65,7 @@ void process(const char* cin_str, std::istream& is = std::cin,
                                   std::ostream& os = std::cout, 
                                   std::ostream& es = std::cerr,
                                   bool is_metrics = true, 
-                                  size_t file_th_cnt = 1)
+                                  size_t file_th_cnt = 2)
 {
     std::string msg = "Invalid block size. Block size must be > 0  and < " + std::to_string(MAX_BULK_SIZE) + ".\n";
     unsigned long long N;

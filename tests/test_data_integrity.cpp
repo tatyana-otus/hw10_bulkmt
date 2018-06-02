@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(data_check)
     run_process(100, 3, 4);
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    run_process(4000, 100, 2);
+    run_process(400000, 100, 2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
