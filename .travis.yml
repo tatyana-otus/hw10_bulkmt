@@ -14,5 +14,5 @@ deploy:
   - provider: script
     skip_cleanup: true
     script:
-    - curl -T Build/bulkmt-*.$TRAVIS_BUILD_NUMBER-Linux.deb -utatyana-otus:$BINTRAY_API_KEY "https://api.bintray.com/content/tatyana-otus/hw_otus/bulkmt/$TRAVIS_BUILD_NUMBER/bulk-1.0.$TRAVIS_BUILD_NUMBER-Linux.deb;deb_distribution=trusty;deb_component=main;deb_architecture=amd64;publish=1"
+    - curl -T Build/bulkmt-*.$TRAVIS_BUILD_NUMBER-Linux.deb -utatyana-otus:$BINTRAY_API_KEY "https://api.bintray.com/content/tatyana-otus/hw_otus/bulkmt/$TRAVIS_BUILD_NUMBER/bulkmt-1.0.$TRAVIS_BUILD_NUMBER-Linux.deb;deb_distribution=trusty;deb_component=main;deb_architecture=amd64;publish=1"
  
