@@ -5,18 +5,25 @@ std::shared_ptr<Command> cmd;
 std::shared_ptr<PrintData> data_log;
 std::vector<std::shared_ptr<WriteData>> file_log;
 
+int64_t unique_start_time;
 
 static void get_data(unsigned long long N, std::istream& is, 
                                            std::ostream& os, 
                                            std::ostream& es, 
                                            size_t file_th_cnt)
 {
+    unique_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>
+              (std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+   
+    unique_start_time %=1000000000;
+    
+
     cmd = std::make_shared<Command>(N);
 
     data_log = std::make_shared<PrintData>(os); 
     file_log.resize(file_th_cnt);
     for(size_t i = 0; i < file_th_cnt; ++i){
-        file_log[i] = std::make_shared<WriteData>(es);
+        file_log[i] = std::make_shared<WriteData>(unique_start_time, es);
     }
 
     cmd->add_hanlder(data_log);
@@ -33,6 +40,7 @@ static void get_data(unsigned long long N, std::istream& is,
                                   + std::to_string(MAX_CMD_LENGTH) + " :" + line + ".\n";
                 throw std::invalid_argument(msg.c_str());
             }
+            if(cmd->check_falure()) throw std::runtime_error("Thread falure !");
             cmd->on_new_cmd(line);
         }
         cmd->on_cmd_end();

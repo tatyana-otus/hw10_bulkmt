@@ -11,8 +11,6 @@ BOOST_AUTO_TEST_SUITE(test_suite_metrics)
 
 BOOST_AUTO_TEST_CASE(metrics_text)
 {  
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
     std::string  in_data =  
     "cmd1\n"
     "cmd2\n"
@@ -51,8 +49,6 @@ BOOST_AUTO_TEST_CASE(metrics_count)
     std::stringstream oss;
     std::stringstream ess;
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
     std::string  in_data =  
     "cmd1\n"
     "cmd2\n"
@@ -70,14 +66,12 @@ BOOST_AUTO_TEST_CASE(metrics_count)
 
     iss.clear();
     iss << in_data;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     process("3", iss, oss, ess, true, 2);
     check_metrics(9, 7, 2);
 
     iss.clear();
     iss << in_data;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     process("3", iss, oss, ess, true, 4);
     check_metrics(9, 7, 2);

@@ -76,6 +76,8 @@ struct Handler
     size_t blk_count = 0;
     size_t cmd_count = 0;
     std::atomic<bool> quit{false};
+
+    std::atomic<bool> failure{false};
 };
 
 
@@ -99,6 +101,14 @@ struct Command {
         for (auto const& h : data_handler) {
             h->start();
         }
+    }
+
+    bool check_falure()
+    {
+        for (auto const& h : data_handler) {
+            if(h->failure) return true;
+        }
+        return false;
     }
 
 

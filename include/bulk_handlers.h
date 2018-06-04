@@ -4,7 +4,7 @@
 
 struct WriteData : public Handler
 {
-    WriteData(std::ostream& es_ = std::cout):es(es_) {}
+    WriteData(int64_t start_time_, std::ostream& es_ = std::cout):es(es_), start_time(start_time_) {}
 
     void start(void) override
     {
@@ -21,69 +21,83 @@ struct WriteData : public Handler
         size_t id;
         std::tie(v, t, id) = msg;
 
-        std::string file_name = "bulk" + std::to_string(t) + "_" + std::to_string(id) + ".log";
+        std::string file_name = "bulk" + std::to_string(t)  + "_" 
+                                       + std::to_string(start_time) + "_"
+                                       + std::to_string(id) + ".log";
         
         if(!std::ifstream{file_name}){
 
             std::ofstream of{file_name};
+            if(of.good() != true){
+                std::lock_guard<std::mutex> lk(std_err_mx);
+                es << "Can't create file: " << file_name << std::endl;
+                throw std::runtime_error("");
+            }
 
             stream_out(v, of);
 
             of.close();
         }
         else {
-            std::unique_lock<std::mutex> lk(std_err_mx);
+            std::lock_guard<std::mutex> lk(std_err_mx);
             es << file_name << " log file already exists" << std::endl;
+            throw std::runtime_error("");
         }    
     }
 
 
     void on_bulk_resolved(queue_f_msg_type &task) 
     {
-        while(!quit){
-            std::unique_lock<std::mutex> lk_file(cv_m_file);
+        try{
+            while(!quit){
+                std::unique_lock<std::mutex> lk_file(cv_m_file);
 
-            cv_file.wait(lk_file, [&task, this](){ return (!task.empty() || this->quit); });
+                cv_file.wait(lk_file, [&task, this](){ return (!task.empty() || this->quit); });
 
-            if(task.empty()) break;
+                if(task.empty()) break;
 
-            auto m_ex = task.front();
+                auto m_ex = task.front();
 
-            f_msg_type m;
-            //std::shared_ptr<bool> b;
-            bool* b;
+                f_msg_type m;
+                //std::shared_ptr<bool> b;
+                bool* b;
 
-            std::tie(m, b) = m_ex;
-            task.pop();          
-            lk_file.unlock();
+                std::tie(m, b) = m_ex;
+                task.pop();          
+                lk_file.unlock();
 
-            create_bulk_file(m);
+                create_bulk_file(m);
 
-            std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
-            *b = false;
+                std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
+                *b = false;
 
-            cv_data_ext.notify_one();  
-        } 
+                cv_data_ext.notify_one();  
+            } 
 
-        std::lock_guard<std::mutex> lk_file(cv_m_file);
-        while(!task.empty()) {
-            auto m_ex = task.front();
+            std::lock_guard<std::mutex> lk_file(cv_m_file);
+            while(!task.empty()) {
+                auto m_ex = task.front();
 
-            f_msg_type m;
-            //std::shared_ptr<bool> b;
-            bool* b;
-            std::tie(m, b) = m_ex;
-            task.pop();
-            create_bulk_file(m);
+                f_msg_type m;
+                //std::shared_ptr<bool> b;
+                bool* b;
+                std::tie(m, b) = m_ex;
+                task.pop();
+                create_bulk_file(m);
 
-            std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
-            *b = false;  
-            cv_data_ext.notify_one();  
-        } 
+                std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
+                *b = false;  
+                cv_data_ext.notify_one();  
+            }
+        }
+        catch(const std::exception &e) {
+            failure = true;           
+        }     
     }
 
     private:
         std::ostream& es; 
+        int64_t start_time;
 };
 
 
@@ -101,29 +115,34 @@ struct PrintData : public Handler
 
     void on_bulk_resolved(queue_msg_type &task) 
     {
-        while(!quit){
-            std::unique_lock<std::mutex> lk(cv_m);
+        try {
+            while(!quit){
+                std::unique_lock<std::mutex> lk(cv_m);
 
-            cv.wait(lk, [&task, this](){ return (!task.empty() || this->quit); });
+                cv.wait(lk, [&task, this](){ return (!task.empty() || this->quit); });
 
-            if(task.empty()) break;
+                if(task.empty()) break;
 
-            auto v = task.front();
-            task.pop();
-            if (task.size() <  (CIRCLE_BUFF_SIZE / 2)) cv_empty.notify_one();
-            lk.unlock();
-            
-            stream_out(v, os);
-            os << "\n";
-        } 
+                auto v = task.front();
+                task.pop();
+                if (task.size() <  (CIRCLE_BUFF_SIZE / 2)) cv_empty.notify_one();
+                lk.unlock();
+                
+                stream_out(v, os);
+                os << "\n";
+            } 
 
-        std::lock_guard<std::mutex> lk(cv_m);
-        while(!task.empty()) {
-            auto v = task.front();
-            task.pop();
-            stream_out(v, os);
-            os << '\n';
+            std::lock_guard<std::mutex> lk(cv_m);
+            while(!task.empty()) {
+                auto v = task.front();
+                task.pop();
+                stream_out(v, os);
+                os << '\n';
+            }
         }
+        catch(const std::exception &e) {
+            failure = true;           
+        }    
     }
 
 private:

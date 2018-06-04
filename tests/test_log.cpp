@@ -13,8 +13,6 @@ BOOST_AUTO_TEST_CASE(log_file_creation)
 {  
     std::stringstream ess;
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
     std::string  in_data =  
     "cmd1\n"
     "cmd2\n"
@@ -37,8 +35,12 @@ BOOST_AUTO_TEST_CASE(log_file_creation)
     ess = test_process("3", in_data, out_data, false, 2);
     BOOST_CHECK_EQUAL( ess.str(), "" );
 
-    std::string f_name_1 = "bulk" + std::to_string(start_time) + "_1.log";
-    std::string f_name_2 = "bulk" + std::to_string(start_time) + "_2.log"; 
+    std::string f_name_1 = "bulk" + std::to_string(start_time) + "_" 
+                                  + std::to_string(unique_start_time) 
+                                  + "_1.log";
+    std::string f_name_2 = "bulk" + std::to_string(start_time) + "_" 
+                                  + std::to_string(unique_start_time) 
+                                  + "_2.log"; 
 
     std::ifstream file_1{f_name_1};
     std::ifstream file_2{f_name_2};

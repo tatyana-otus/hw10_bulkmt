@@ -64,11 +64,15 @@ static void check_log_files(std::time_t init_time, int blk_num)
     int id = 1;
     std::string ethalon_line;
     while (std::getline(ethalon_file, ethalon_line)){
-        std::string name = "bulk" + std::to_string(init_time) + "_" + std::to_string(id) + ".log";
+        std::string name = "bulk" + std::to_string(init_time) + "_" 
+                                  + std::to_string(unique_start_time) + "_" 
+                                  + std::to_string(id) + ".log";
         
         int watchdog_sec = 0;
         while(!(std::ifstream{name}) && (watchdog_sec < 10)){
-            name = "bulk" + std::to_string(++init_time) + "_" + std::to_string(id) + ".log";
+            name = "bulk" + std::to_string(++init_time) + "_" 
+                          + std::to_string(unique_start_time) + "_" 
+                          + std::to_string(id) + ".log";
             ++watchdog_sec;
         }
         if(watchdog_sec >= 10) break;
@@ -117,17 +121,13 @@ BOOST_AUTO_TEST_SUITE(test_suite_data_integrity)
 
 BOOST_AUTO_TEST_CASE(data_check)
 {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     run_process(10, 3, 1);  
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     run_process(10, 3, 2); 
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     run_process(100, 3, 4);
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    run_process(400000, 100, 2);
+    run_process(400, 100, 2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
