@@ -4,7 +4,7 @@
 
 struct WriteData : public Handler
 {
-    WriteData(int64_t start_time_, std::ostream& es_ = std::cout):es(es_), start_time(start_time_) {}
+    WriteData(int64_t start_time_): start_time(start_time_) {}
 
     void start(void) override
     {
@@ -29,9 +29,8 @@ struct WriteData : public Handler
 
             std::ofstream of{file_name};
             if(of.good() != true){
-                std::lock_guard<std::mutex> lk(std_err_mx);
-                es << "Can't create file: " << file_name << std::endl;
-                throw std::runtime_error("");
+                std::string msg = "Can't create file: " + file_name + '\n';
+                throw std::runtime_error(msg.c_str());
             }
 
             stream_out(v, of);
@@ -39,10 +38,9 @@ struct WriteData : public Handler
             of.close();
         }
         else {
-            std::lock_guard<std::mutex> lk(std_err_mx);
-            es << file_name << " log file already exists" << std::endl;
-            throw std::runtime_error("");
-        }    
+            std::string msg = file_name + " log file already exists\n";
+            throw std::runtime_error(msg.c_str());
+        }  
     }
 
 
@@ -91,12 +89,12 @@ struct WriteData : public Handler
             }
         }
         catch(const std::exception &e) {
+            eptr = std::current_exception();
             failure = true;           
         }     
     }
 
     private:
-        std::ostream& es; 
         int64_t start_time;
 };
 
@@ -141,6 +139,7 @@ struct PrintData : public Handler
             }
         }
         catch(const std::exception &e) {
+            eptr = std::current_exception();
             failure = true;           
         }    
     }

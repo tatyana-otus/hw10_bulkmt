@@ -11,8 +11,6 @@ BOOST_AUTO_TEST_SUITE(test_suite_log)
 
 BOOST_AUTO_TEST_CASE(log_file_creation)
 {  
-    std::stringstream ess;
-
     std::string  in_data =  
     "cmd1\n"
     "cmd2\n"
@@ -32,8 +30,7 @@ BOOST_AUTO_TEST_CASE(log_file_creation)
     std::string bulk_2 = "bulk: cmd4, cmd5, cmd6, cmd7";
 
     std::time_t start_time = std::time(nullptr);
-    ess = test_process("3", in_data, out_data, false, 2);
-    BOOST_CHECK_EQUAL( ess.str(), "" );
+    test_process("3", in_data, out_data, false, 2);
 
     std::string f_name_1 = "bulk" + std::to_string(start_time) + "_" 
                                   + std::to_string(unique_start_time) 

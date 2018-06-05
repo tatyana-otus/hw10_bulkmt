@@ -47,7 +47,6 @@ BOOST_AUTO_TEST_CASE(metrics_count)
 {
     std::stringstream iss;
     std::stringstream oss;
-    std::stringstream ess;
 
     std::string  in_data =  
     "cmd1\n"
@@ -61,19 +60,19 @@ BOOST_AUTO_TEST_CASE(metrics_count)
     "}\n";
 
     iss << in_data;
-    process("3", iss, oss, ess, true, 1);
+    process("3", iss, oss, true, 1);
     check_metrics(9, 7, 2);
 
     iss.clear();
     iss << in_data;
 
-    process("3", iss, oss, ess, true, 2);
+    process("3", iss, oss, true, 2);
     check_metrics(9, 7, 2);
 
     iss.clear();
     iss << in_data;
 
-    process("3", iss, oss, ess, true, 4);
+    process("3", iss, oss, true, 4);
     check_metrics(9, 7, 2);
 }
 

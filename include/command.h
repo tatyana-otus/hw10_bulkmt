@@ -7,6 +7,7 @@
 #include <queue>
 #include <thread>
 #include <atomic>
+#include <exception>
 
 const size_t MAX_BULK_SIZE  = 128;
 const size_t MAX_CMD_LENGTH = 64;
@@ -24,9 +25,6 @@ std::condition_variable cv_empty;
 
 std::condition_variable cv_data_ext;
 std::mutex cv_m_data_ext;
-
-std::mutex std_err_mx;
-
 
 using data_type = std::vector<std::string>;
 //using p_data_type = std::shared_ptr<data_type>;
@@ -75,9 +73,11 @@ struct Handler
 
     size_t blk_count = 0;
     size_t cmd_count = 0;
+    
     std::atomic<bool> quit{false};
 
     std::atomic<bool> failure{false};
+    std::exception_ptr eptr;
 };
 
 
@@ -103,12 +103,22 @@ struct Command {
         }
     }
 
-    bool check_falure()
+    bool check_falure() const
     {
         for (auto const& h : data_handler) {
             if(h->failure) return true;
         }
         return false;
+    }
+
+
+    void handle_exeption() const
+    {
+        for (auto const& h : data_handler) {
+            if (h->eptr) {
+                std::rethrow_exception(h->eptr);
+            }
+        }
     }
 
 

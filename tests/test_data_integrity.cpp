@@ -93,7 +93,6 @@ static void check_log_files(std::time_t init_time, int blk_num)
 static void run_process(int str_num, int blk_size, int file_threads_cnt)
 {
     std::stringstream oss;
-    std::stringstream ess;
     std::time_t init_time;
     int blk_num = str_num / blk_size + ((str_num % blk_size) == 0 ? 0 : 1);
 
@@ -106,7 +105,7 @@ static void run_process(int str_num, int blk_size, int file_threads_cnt)
     BOOST_CHECK_EQUAL( out_f.good(), true );
     
     init_time = std::time(nullptr);
-    process(std::to_string(blk_size).c_str(), in_f, out_f, ess, false, file_threads_cnt);
+    process(std::to_string(blk_size).c_str(), in_f, out_f, false, file_threads_cnt);
 
     in_f.close();
     out_f.close();
@@ -127,7 +126,7 @@ BOOST_AUTO_TEST_CASE(data_check)
 
     run_process(100, 3, 4);
 
-    run_process(400, 100, 2);
+    run_process(400000, 100, 2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

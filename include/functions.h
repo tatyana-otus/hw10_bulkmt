@@ -8,8 +8,7 @@ std::vector<std::shared_ptr<WriteData>> file_log;
 int64_t unique_start_time;
 
 static void get_data(unsigned long long N, std::istream& is, 
-                                           std::ostream& os, 
-                                           std::ostream& es, 
+                                           std::ostream& os,  
                                            size_t file_th_cnt)
 {
     unique_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>
@@ -23,7 +22,7 @@ static void get_data(unsigned long long N, std::istream& is,
     data_log = std::make_shared<PrintData>(os); 
     file_log.resize(file_th_cnt);
     for(size_t i = 0; i < file_th_cnt; ++i){
-        file_log[i] = std::make_shared<WriteData>(unique_start_time, es);
+        file_log[i] = std::make_shared<WriteData>(unique_start_time);
     }
 
     cmd->add_hanlder(data_log);
@@ -40,13 +39,14 @@ static void get_data(unsigned long long N, std::istream& is,
                                   + std::to_string(MAX_CMD_LENGTH) + " :" + line + ".\n";
                 throw std::invalid_argument(msg.c_str());
             }
-            if(cmd->check_falure()) throw std::runtime_error("Thread falure !");
+            if(cmd->check_falure()) throw std::runtime_error("");
             cmd->on_new_cmd(line);
         }
         cmd->on_cmd_end();
     }
     catch(const std::exception &e) {
         cmd->stop();
+        cmd->handle_exeption();
         throw;
     }
     cmd->stop();
@@ -71,7 +71,6 @@ static void print_metrics(std::ostream& os)
 
 void process(const char* cin_str, std::istream& is = std::cin, 
                                   std::ostream& os = std::cout, 
-                                  std::ostream& es = std::cerr,
                                   bool is_metrics = true, 
                                   size_t file_th_cnt = 2)
 {
@@ -93,7 +92,7 @@ void process(const char* cin_str, std::istream& is = std::cin,
         throw std::invalid_argument(msg.c_str());
     }
 
-    get_data(N, is, os, es, file_th_cnt);
+    get_data(N, is, os, file_th_cnt);
 
     if(is_metrics) print_metrics(os); 
 }

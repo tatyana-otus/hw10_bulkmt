@@ -7,7 +7,7 @@
 
 using boost::test_tools::output_test_stream;
 
-std::stringstream test_process(const char* N, 
+void test_process(const char* N, 
                                const std::string& in_data, 
                                const std::string& out_data,                            
                                bool is_metrics = true, 
@@ -15,14 +15,11 @@ std::stringstream test_process(const char* N,
 {
     std::stringstream iss;
     std::stringstream oss;
-    std::stringstream ess;
 
     iss << in_data;
-    process(N, iss, oss, ess, is_metrics, file_th_cnt);
+    process(N, iss, oss, is_metrics, file_th_cnt);
 
     BOOST_CHECK_EQUAL( oss.str(), out_data);
-
-    return ess;
 }
 
 
