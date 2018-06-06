@@ -1,78 +1,11 @@
 #include "bulk_handlers.h"
 
-std::shared_ptr<Command> cmd;
 
-std::shared_ptr<PrintData> data_log;
-std::vector<std::shared_ptr<WriteData>> file_log;
-
-int64_t unique_start_time;
-
-static void get_data(unsigned long long N, std::istream& is, 
-                                           std::ostream& os,  
-                                           size_t file_th_cnt)
-{
-    unique_start_time = std::chrono::duration_cast<std::chrono::nanoseconds>
-              (std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-   
-    unique_start_time %=1000000000;
-    
-
-    cmd = std::make_shared<Command>(N);
-
-    data_log = std::make_shared<PrintData>(os); 
-    file_log.resize(file_th_cnt);
-    for(size_t i = 0; i < file_th_cnt; ++i){
-        file_log[i] = std::make_shared<WriteData>(unique_start_time);
-    }
-
-    cmd->add_hanlder(data_log);
-    for(auto& h : file_log){
-        cmd->add_hanlder(h);
-    }
-
-    cmd->start();
-
-    try {     
-        for(std::string line; std::getline(is, line);){ 
-            if(line.size() > MAX_CMD_LENGTH){
-                std::string msg = "Invalid command length. Command length must be < " 
-                                  + std::to_string(MAX_CMD_LENGTH) + " :" + line + ".\n";
-                throw std::invalid_argument(msg.c_str());
-            }
-            if(cmd->check_falure()) throw std::runtime_error("");
-            cmd->on_new_cmd(line);
-        }
-        cmd->on_cmd_end();
-    }
-    catch(const std::exception &e) {
-        cmd->stop();
-        cmd->handle_exeption();
-        throw;
-    }
-    cmd->stop();
-}
-
-
-static void print_metrics(std::ostream& os)
-{
-    os << std::endl;
-
-    os << "Thread main   - "; 
-    cmd->print_metrics(os);
-    os << "Thread log    - " ;
-    data_log->print_metrics(os);
-
-    for(size_t i = 0; i < file_log.size(); ++i){
-        os << "Thread file_" + std::to_string(i + 1) + " - ";
-        file_log[i] ->print_metrics(os);
-    }
-}
-
-
-void process(const char* cin_str, std::istream& is = std::cin, 
+void process(const char* cin_str, std::string main_th_id,
+                                  std::istream& is = std::cin, 
                                   std::ostream& os = std::cout, 
                                   bool is_metrics = true, 
-                                  size_t file_th_cnt = 2)
+                                  size_t file_th_cnt = 1)
 {
     std::string msg = "Invalid block size. Block size must be > 0  and < " + std::to_string(MAX_BULK_SIZE) + ".\n";
     unsigned long long N;
@@ -92,7 +25,38 @@ void process(const char* cin_str, std::istream& is = std::cin,
         throw std::invalid_argument(msg.c_str());
     }
 
-    get_data(N, is, os, file_th_cnt);
+    std::shared_ptr<PrintData> data_log;
+    std::vector<std::shared_ptr<WriteData>> file_log;
+  
+    auto  q_file  = std::make_shared<queue_wrapper<f_msg_type_ext>>();
+    auto  q_print = std::make_shared<queue_wrapper<p_data_type>>();
 
-    if(is_metrics) print_metrics(os); 
+    auto cmd = std::make_shared<Command>(N, q_file, q_print);
+
+    data_log = std::make_shared<PrintData>(q_print, os); 
+    file_log.resize(file_th_cnt);
+    for(size_t i = 0; i < file_th_cnt; ++i){
+        file_log[i] = std::make_shared<WriteData>(q_file, main_th_id);
+    }
+
+    cmd->add_hanlder(data_log);
+    for(auto& h : file_log){
+        cmd->add_hanlder(h);
+    }
+
+    cmd->get_data(is);
+
+    if(is_metrics) {
+        os << std::endl;
+
+        os << "Thread main   - "; 
+        cmd->print_metrics(os);
+        os << "Thread log    - " ;
+        data_log->print_metrics(os);
+
+        for(size_t i = 0; i < file_log.size(); ++i){
+            os << "Thread file_" + std::to_string(i + 1) + " - ";
+            file_log[i] ->print_metrics(os);
+        }
+    } 
 }

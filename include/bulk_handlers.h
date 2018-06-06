@@ -4,13 +4,12 @@
 
 struct WriteData : public Handler
 {
-    WriteData(int64_t start_time_): start_time(start_time_) {}
+    WriteData(p_file_tasks task_, std::string process_id_):process_id(process_id_), task(task_) {}
 
     void start(void) override
     {
         helper_thread = std::thread(&WriteData::on_bulk_resolved, 
-                                    this,  
-                                    std::ref(file_msgs));
+                                    this);
     } 
 
 
@@ -22,7 +21,7 @@ struct WriteData : public Handler
         std::tie(v, t, id) = msg;
 
         std::string file_name = "bulk" + std::to_string(t)  + "_" 
-                                       + std::to_string(start_time) + "_"
+                                       + process_id + "_"
                                        + std::to_string(id) + ".log";
         
         if(!std::ifstream{file_name}){
@@ -44,48 +43,45 @@ struct WriteData : public Handler
     }
 
 
-    void on_bulk_resolved(queue_f_msg_type &task) 
+    void on_bulk_resolved()   
     {
         try{
             while(!quit){
-                std::unique_lock<std::mutex> lk_file(cv_m_file);
+                std::unique_lock<std::mutex> lk_file(task->cv_mx);
+                task->cv.wait(lk_file, [this](){ return (!this->task->empty() || this->quit); });
 
-                cv_file.wait(lk_file, [&task, this](){ return (!task.empty() || this->quit); });
+                if(task->empty()) break;
 
-                if(task.empty()) break;
-
-                auto m_ex = task.front();
+                auto m_ex = task->front();
 
                 f_msg_type m;
-                //std::shared_ptr<bool> b;
                 bool* b;
 
                 std::tie(m, b) = m_ex;
-                task.pop();          
+                task->pop();          
                 lk_file.unlock();
 
                 create_bulk_file(m);
 
-                std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
+                std::lock_guard<std::mutex> lk_ext_data(task->cv_mx_empty);
                 *b = false;
 
-                cv_data_ext.notify_one();  
+                task->cv_empty.notify_one(); 
             } 
 
-            std::lock_guard<std::mutex> lk_file(cv_m_file);
-            while(!task.empty()) {
-                auto m_ex = task.front();
+            std::unique_lock<std::mutex> lk_file(task->cv_mx);
+            while(!task->empty()) {
+                auto m_ex = task->front();
 
                 f_msg_type m;
-                //std::shared_ptr<bool> b;
                 bool* b;
                 std::tie(m, b) = m_ex;
-                task.pop();
+                task->pop();
                 create_bulk_file(m);
 
-                std::lock_guard<std::mutex> lk_ext_data(cv_m_data_ext);
+                std::lock_guard<std::mutex> lk_ext_data(task->cv_mx_empty);
                 *b = false;  
-                cv_data_ext.notify_one();  
+                task->cv_empty.notify_one(); 
             }
         }
         catch(const std::exception &e) {
@@ -94,46 +90,47 @@ struct WriteData : public Handler
         }     
     }
 
+        std::string process_id;
     private:
-        int64_t start_time;
+        p_file_tasks task;
+        
 };
 
 
 struct PrintData : public Handler
 {
-    PrintData(std::ostream& os_ = std::cout):os(os_) {}
+    PrintData(p_print_task task_, std::ostream& os_ = std::cout):task(task_), os(os_) {}
 
     void start(void) override
     {
         helper_thread = std::thread( &PrintData::on_bulk_resolved,
-                                     this, 
-                                     std::ref(msgs));
+                                     this);
     } 
 
 
-    void on_bulk_resolved(queue_msg_type &task) 
+    void on_bulk_resolved() 
     {
         try {
             while(!quit){
-                std::unique_lock<std::mutex> lk(cv_m);
+                std::unique_lock<std::mutex> lk(task->cv_mx);
 
-                cv.wait(lk, [&task, this](){ return (!task.empty() || this->quit); });
+                task->cv.wait(lk, [this](){ return (!this->task->empty() || this->quit); });
 
-                if(task.empty()) break;
+                if(task->empty()) break;
 
-                auto v = task.front();
-                task.pop();
-                if (task.size() <  (CIRCLE_BUFF_SIZE / 2)) cv_empty.notify_one();
+                auto v = task->front();
+                task->pop();
+                if (task->size() <  (CIRCLE_BUFF_SIZE / 2)) task->cv_empty.notify_one();
                 lk.unlock();
                 
                 stream_out(v, os);
                 os << "\n";
             } 
 
-            std::lock_guard<std::mutex> lk(cv_m);
-            while(!task.empty()) {
-                auto v = task.front();
-                task.pop();
+            std::unique_lock<std::mutex> lk(task->cv_mx);
+            while(!task->empty()) {
+                auto v = task->front();
+                task->pop();
                 stream_out(v, os);
                 os << '\n';
             }
@@ -145,5 +142,6 @@ struct PrintData : public Handler
     }
 
 private:
-    std::ostream& os;
+    p_print_task task;
+    std::ostream& os;   
 };

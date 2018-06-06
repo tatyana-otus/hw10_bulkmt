@@ -6,6 +6,8 @@
 #include "test_helper.h"
 #include <fstream>
 
+size_t test_id = 200;
+
 BOOST_AUTO_TEST_SUITE(test_suite_log)
 
 
@@ -26,17 +28,24 @@ BOOST_AUTO_TEST_CASE(log_file_creation)
     "bulk: cmd1, cmd2, cmd3\n"
     "bulk: cmd4, cmd5, cmd6, cmd7\n";
 
+     std::stringstream iss;
+    std::stringstream oss;
+
+    iss << in_data;
+
     std::string bulk_1 = "bulk: cmd1, cmd2, cmd3";
     std::string bulk_2 = "bulk: cmd4, cmd5, cmd6, cmd7";
 
     std::time_t start_time = std::time(nullptr);
-    test_process("3", in_data, out_data, false, 2);
+    process("3", std::to_string(++test_id), 
+            iss, oss, false, 2);
 
-    std::string f_name_1 = "bulk" + std::to_string(start_time) + "_" 
-                                  + std::to_string(unique_start_time) 
+
+    std::string f_name_1 = "bulk" + std::to_string(start_time) +
+                                  + "_" + std::to_string(test_id) 
                                   + "_1.log";
-    std::string f_name_2 = "bulk" + std::to_string(start_time) + "_" 
-                                  + std::to_string(unique_start_time) 
+    std::string f_name_2 = "bulk" + std::to_string(start_time) 
+                                  + "_" + std::to_string(test_id)  
                                   + "_2.log"; 
 
     std::ifstream file_1{f_name_1};

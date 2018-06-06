@@ -1,7 +1,9 @@
 #define BOOST_TEST_MODULE test_main
 
 #include "test_helper.h"
+#include <cstdio>
 
+size_t test_id = 500;
 
 static void gen_static_bulk_test_input_file(std::string file_name, int size)
 {
@@ -19,7 +21,8 @@ static void gen_static_bulk_test_input_file(std::string file_name, int size)
 
 static void gen_static_bulk_test_output_file(const std::string& file_name, 
                                       int str_size, 
-                                      int bulk_size) {
+                                      int bulk_size)
+{
 
     std::ofstream f{file_name, std::ofstream::trunc};
 
@@ -65,13 +68,13 @@ static void check_log_files(std::time_t init_time, int blk_num)
     std::string ethalon_line;
     while (std::getline(ethalon_file, ethalon_line)){
         std::string name = "bulk" + std::to_string(init_time) + "_" 
-                                  + std::to_string(unique_start_time) + "_" 
+                                  + std::to_string(test_id) + "_" 
                                   + std::to_string(id) + ".log";
         
         int watchdog_sec = 0;
         while(!(std::ifstream{name}) && (watchdog_sec < 10)){
             name = "bulk" + std::to_string(++init_time) + "_" 
-                          + std::to_string(unique_start_time) + "_" 
+                          + std::to_string(test_id) + "_" 
                           + std::to_string(id) + ".log";
             ++watchdog_sec;
         }
@@ -105,13 +108,15 @@ static void run_process(int str_num, int blk_size, int file_threads_cnt)
     BOOST_CHECK_EQUAL( out_f.good(), true );
     
     init_time = std::time(nullptr);
-    process(std::to_string(blk_size).c_str(), in_f, out_f, false, file_threads_cnt);
+    process(std::to_string(blk_size).c_str(), 
+            std::to_string(++test_id), 
+            in_f, out_f, false, 
+            file_threads_cnt);
 
     in_f.close();
     out_f.close();
 
     compare_files("ethalon_output.txt", "test_out.txt"); 
-    check_metrics(str_num, str_num, blk_num );
     check_log_files(init_time, blk_num);
 }
 
@@ -126,7 +131,15 @@ BOOST_AUTO_TEST_CASE(data_check)
 
     run_process(100, 3, 4);
 
-    run_process(400000, 100, 2);
+    run_process(40000, 100, 2);
 }
 
+
+BOOST_AUTO_TEST_CASE(remove_test_files)
+{
+    std::system("rm -f *.log");
+    std::system("rm -f ethalon_output.txt");
+    std::system("rm -f test_input.txt");
+    std::system("rm -f test_out.txt");
+}
 BOOST_AUTO_TEST_SUITE_END()

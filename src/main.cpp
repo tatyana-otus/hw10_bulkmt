@@ -9,7 +9,11 @@ int main(int argc, char* argv[])
     else{
 
         try {
-            process(argv[1]);
+            std::stringstream ss;
+            ss << std::this_thread::get_id();
+            auto main_th_id = ss.str();
+
+            process(argv[1], main_th_id);
         }
         catch(const std::exception &e) {
             std::cerr << e.what() << std::endl;

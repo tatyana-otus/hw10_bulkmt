@@ -18,7 +18,7 @@ set_target_properties(${BINARY_NAME} PROPERTIES
   COMPILE_OPTIONS -Wall -Wextra -Wpedantic 
 )
 
-#set (CMAKE_CXX_FLAGS "-fsanitize=thread")
+set (CMAKE_CXX_FLAGS "-fsanitize=thread")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION bin)
 

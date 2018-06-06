@@ -8,6 +8,9 @@
 #include <thread>
 #include <atomic>
 #include <exception>
+#include <sstream>
+
+#include "queue_wrapper.h"
 
 const size_t MAX_BULK_SIZE  = 128;
 const size_t MAX_CMD_LENGTH = 64;
@@ -15,44 +18,38 @@ const size_t MAX_CMD_LENGTH = 64;
 const size_t CIRCLE_BUFF_SIZE = 256;
 static_assert(CIRCLE_BUFF_SIZE > 4, "");
 
-std::condition_variable cv;
-std::mutex cv_m;
-
-std::condition_variable cv_file;
-std::mutex cv_m_file;
-
-std::condition_variable cv_empty;
-
-std::condition_variable cv_data_ext;
-std::mutex cv_m_data_ext;
 
 using data_type = std::vector<std::string>;
-//using p_data_type = std::shared_ptr<data_type>;
 using p_data_type = data_type*;
 using queue_msg_type = std::queue<p_data_type>;
 
-using f_msg_type = std::tuple<p_data_type, std::time_t, size_t>;
-//using f_msg_type_ext   = std::tuple<f_msg_type, std::shared_ptr<bool>>;
-using f_msg_type_ext   = std::tuple<f_msg_type, bool*>;
-using queue_f_msg_type = std::queue<f_msg_type_ext>;
+using p_print_task = std::shared_ptr<queue_wrapper<p_data_type>>;
 
-queue_msg_type      msgs;
-queue_f_msg_type    file_msgs;
+using f_msg_type = std::tuple<p_data_type, std::time_t, size_t>;
+using f_msg_type_ext   = std::tuple<f_msg_type, bool*>;
+using p_file_tasks = std::shared_ptr<queue_wrapper<f_msg_type_ext>>;
 
 
 struct Handler
 {
     void stream_out(const p_data_type v, std::ostream& os)
     {   
-        ++blk_count;
+        if(!v->empty()){
+        
+            ++blk_count;
 
-        os << "bulk: " << *(v->cbegin());
-        ++cmd_count;
-        for (auto it = std::next(v->cbegin()); it != std::cend(*v); ++it){
-            os << ", " << *it ;
-            ++cmd_count;   
-        } 
+            os << "bulk: " << *(v->cbegin());
+            ++cmd_count;
+            for (auto it = std::next(v->cbegin()); it != std::cend(*v); ++it){
+                os << ", " << *it ;
+                ++cmd_count;   
+            } 
+        }
+        else {
+            throw std::invalid_argument("");
+        }
     }
+
 
     void print_metrics(std::ostream& os = std::cout) const
     {
@@ -61,10 +58,12 @@ struct Handler
            <<  "\n";
     }
 
+
     void stop (void) 
     {
         helper_thread.join();
     } 
+
 
     virtual void start(void) = 0; 
 
@@ -83,15 +82,15 @@ struct Handler
 
 struct Command {
 
-    Command(size_t N_):N(N_), braces_count(0)
+    Command(size_t N_, p_file_tasks f_task_,p_print_task print_task_ ):
+    N(N_), file_task(f_task_), print_task(print_task_), braces_count(0),
+    idx_write(0), file_id(0),
+    str_count(0), cmd_count(0), blk_count(0)
     {
         for(size_t i = 0; i < CIRCLE_BUFF_SIZE; ++i) {
 
             data[i].reserve(MAX_BULK_SIZE);
             data_ext[i] = false;
-
-            //data_shared_ptr[i]     = std::shared_ptr<data_type>(&data[i],     [](data_type*){});
-            //data_ext_shared_ptr[i] = std::shared_ptr<bool>     (&data_ext[i], [](bool*){});
         }
     }
 
@@ -128,12 +127,12 @@ struct Command {
             h->quit = true;
         }
 
-        std::unique_lock<std::mutex> lk(cv_m);  // without lock -fsanitize=thread hung empty test 1:10 
-        cv.notify_one();
+        std::unique_lock<std::mutex> lk(print_task->cv_mx);  // without lock -fsanitize=thread hung empty test 1:10 
+        print_task->cv.notify_one();
         lk.unlock();
-        
-        std::unique_lock<std::mutex> lk_file(cv_m_file); // without lock -fsanitize=thread hung empty test 1:10
-        cv_file.notify_all();
+
+        std::unique_lock<std::mutex> lk_file(file_task->cv_mx);
+        file_task->cv.notify_all();
         lk_file.unlock();
 
         for (auto const& h : data_handler) {
@@ -154,45 +153,44 @@ struct Command {
 
             data_ext[idx_write] = true;    //no need for lock
 
-            set_printer_task();
             set_logger_task();
+            set_printer_task();
 
             update_write_index();
         }       
     }
 
 
-    void set_printer_task()
+    void set_logger_task()
     {
-        std::unique_lock<std::mutex> lk_file(cv_m_file);
-
-        file_msgs.push(std::make_tuple(std::make_tuple(&data[idx_write], //data_shared_ptr[idx_write]
+        std::unique_lock<std::mutex> lk_file(file_task->cv_mx);
+        file_task->push(std::make_tuple(std::make_tuple(&data[idx_write], 
                                                        init_time, 
                                                        ++file_id
                                                        ), 
-                                       &data_ext[idx_write]) // data_ext_shared_ptr[idx_write]
-                                       );                                                       
-       
+                                       &data_ext[idx_write]) 
+                                       );
         lk_file.unlock();
-
-        cv_file.notify_one();
+        file_task->cv.notify_one();
     }
 
 
-    void set_logger_task()
+    void set_printer_task()
     {
-        std::unique_lock<std::mutex> lk(cv_m);
+        std::unique_lock<std::mutex> lk(print_task->cv_mx);
+        
 
-        if(msgs.size() > (CIRCLE_BUFF_SIZE - 3)) {
-            cv.notify_one();
-            cv_empty.wait(lk, [](){ return( msgs.size() <  (CIRCLE_BUFF_SIZE / 2)); });
+        if(print_task->size() > (CIRCLE_BUFF_SIZE - 3)) {
+            print_task->cv.notify_one();
+            print_task->cv_empty.wait(lk, [this](){ 
+            return( this->print_task->size() <  (CIRCLE_BUFF_SIZE / 2)); });
         }
         
-        msgs.push( &data[idx_write] );  //data_shared_ptr[idx_write] 
+        print_task->push( &data[idx_write] );
 
         lk.unlock();
 
-        cv.notify_one();
+        print_task->cv.notify_one();
     }
 
 
@@ -202,10 +200,10 @@ struct Command {
         idx_write %= CIRCLE_BUFF_SIZE;
         ++blk_count;
 
-        std::unique_lock<std::mutex> lk_ext_data(cv_m_data_ext);
+        std::unique_lock<std::mutex> lk_ext_data(file_task->cv_mx_empty);
         if(data_ext[idx_write] == true) { 
-            cv_file.notify_one();
-            cv_data_ext.wait(lk_ext_data, [this](){ return !this->data_ext[idx_write]; });
+            file_task->cv.notify_one();
+            file_task->cv_empty.wait(lk_ext_data, [this](){ return !this->data_ext[idx_write]; });
         }
         lk_ext_data.unlock(); 
     }
@@ -279,23 +277,49 @@ struct Command {
            <<  "\n";
     }
 
-    size_t str_count = 0;
-    size_t cmd_count = 0;
-    size_t blk_count = 0;
+
+    void get_data(std::istream& is) {
+
+        start();
+        try {  
+            for(std::string line; std::getline(is, line);){ 
+                if(line.size() > MAX_CMD_LENGTH){
+                    std::string msg = "Invalid command length. Command length must be < " 
+                                      + std::to_string(MAX_CMD_LENGTH) + " :" + line + ".\n";
+                    throw std::invalid_argument(msg.c_str());
+                }
+                if(check_falure()) throw std::runtime_error("");
+                on_new_cmd(line);
+            }
+            on_cmd_end();
+        }
+        catch(const std::exception &e) {
+            stop();
+            handle_exeption();
+            throw;
+        }
+        stop();
+    }
+
 
 private:
+    size_t N;
+    p_file_tasks file_task;
+    p_print_task print_task;
+
     std::time_t init_time;
 
     std::vector<std::shared_ptr<Handler>> data_handler;
 
-    std::array<data_type,             CIRCLE_BUFF_SIZE> data;
-    //std::array<p_data_type,           CIRCLE_BUFF_SIZE> data_shared_ptr;
-
-    std::array<bool,                  CIRCLE_BUFF_SIZE> data_ext;
-    //std::array<std::shared_ptr<bool>, CIRCLE_BUFF_SIZE> data_ext_shared_ptr;
-
-    size_t N;
+    std::array<data_type, CIRCLE_BUFF_SIZE> data;
+    std::array<bool,      CIRCLE_BUFF_SIZE> data_ext;
+    
     int braces_count; 
-    size_t idx_write = 0;
-    size_t file_id = 0;
+    size_t idx_write;
+    size_t file_id;
+
+ public:   
+    size_t str_count;
+    size_t cmd_count;
+    size_t blk_count;
 };
