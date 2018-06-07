@@ -34,11 +34,18 @@ struct WriteData : public Handler
 
             stream_out(v, of);
 
+            if(of.good()) {
+                of.flush();
+            } 
+            if(!of.good()) {
+                throw std::runtime_error("Error writing to file.");
+            }  
+            
             of.close();
         }
         else {
             std::string msg = file_name + " log file already exists\n";
-            throw std::runtime_error(msg.c_str());
+            throw std::logic_error(msg.c_str());
         }  
     }
 

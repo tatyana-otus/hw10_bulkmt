@@ -8,7 +8,6 @@ size_t test_id = 100;
 BOOST_AUTO_TEST_SUITE(test_suite_bulk)
 
 
-
 BOOST_AUTO_TEST_CASE(empty_bulk)
 {  
     test_process("2", std::to_string(++test_id), "", "", false);

@@ -47,8 +47,6 @@ BOOST_AUTO_TEST_CASE(metrics_text)
 
 BOOST_AUTO_TEST_CASE(metrics_count)
 {
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
-
     std::stringstream iss;
     std::stringstream oss;
 

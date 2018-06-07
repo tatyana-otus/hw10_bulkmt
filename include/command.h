@@ -43,10 +43,10 @@ struct Handler
             for (auto it = std::next(v->cbegin()); it != std::cend(*v); ++it){
                 os << ", " << *it ;
                 ++cmd_count;   
-            } 
+            }           
         }
         else {
-            throw std::invalid_argument("");
+            throw std::invalid_argument("Empty bulk !");
         }
     }
 
@@ -138,6 +138,8 @@ struct Command {
         for (auto const& h : data_handler) {
             h->stop();
         }
+
+        handle_exeption();
     }
 
 
@@ -295,7 +297,6 @@ struct Command {
         }
         catch(const std::exception &e) {
             stop();
-            handle_exeption();
             throw;
         }
         stop();
