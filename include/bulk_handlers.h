@@ -4,7 +4,7 @@
 
 struct WriteData : public Handler
 {
-    WriteData(p_file_tasks task_, std::string process_id_):process_id(process_id_), task(task_) {}
+    WriteData(p_file_tasks task_, std::string main_th_id_):main_th_id(main_th_id_), task(task_) {}
 
     void start(void) override
     {
@@ -21,7 +21,7 @@ struct WriteData : public Handler
         std::tie(v, t, id) = msg;
 
         std::string file_name = "bulk" + std::to_string(t)  + "_" 
-                                       + process_id + "_"
+                                       + main_th_id + "_"
                                        + std::to_string(id) + ".log";
         
         if(!std::ifstream{file_name}){
@@ -97,7 +97,7 @@ struct WriteData : public Handler
         }     
     }
 
-        std::string process_id;
+        std::string main_th_id;
     private:
         p_file_tasks task;
         
