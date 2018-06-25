@@ -11,6 +11,12 @@ struct queue_wrapper
     }
 
 
+    void push( const T& value )
+    {
+        q_data.push(value);
+    }
+
+
     T& front()
     {
         return q_data.front();

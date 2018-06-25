@@ -4,7 +4,7 @@
 
 struct WriteData : public Handler
 {
-    WriteData(p_file_tasks task_, std::string main_th_id_):main_th_id(main_th_id_), task(task_) {}
+    WriteData(std::shared_ptr<f_tasks_t> task_, std::string main_th_id_):main_th_id(main_th_id_), task(task_) {}
 
     void start(void) override
     {
@@ -34,14 +34,10 @@ struct WriteData : public Handler
 
             stream_out(v, of);
 
-            if(of.good()) {
-                of.flush();
-            } 
+            of.close();
             if(!of.good()) {
                 throw std::runtime_error("Error writing to file.");
-            }  
-            
-            of.close();
+            } 
         }
         else {
             std::string msg = file_name + " log file already exists\n";
@@ -59,36 +55,21 @@ struct WriteData : public Handler
 
                 if(task->empty()) break;
 
-                auto m_ex = task->front();
+                auto m = task->front();
 
-                f_msg_type m;
-                bool* b;
-
-                std::tie(m, b) = m_ex;
-                task->pop();          
+                task->pop(); 
+                if (task->size() <  (MAX_QUEUE_SIZE / 2)) task->cv_empty.notify_one();         
                 lk_file.unlock();
 
-                create_bulk_file(m);
-
-                std::lock_guard<std::mutex> lk_ext_data(task->cv_mx_empty);
-                *b = false;
-
-                task->cv_empty.notify_one(); 
+                create_bulk_file(m); 
             } 
 
             std::unique_lock<std::mutex> lk_file(task->cv_mx);
             while(!task->empty()) {
-                auto m_ex = task->front();
+                auto m = task->front();
 
-                f_msg_type m;
-                bool* b;
-                std::tie(m, b) = m_ex;
                 task->pop();
-                create_bulk_file(m);
-
-                std::lock_guard<std::mutex> lk_ext_data(task->cv_mx_empty);
-                *b = false;  
-                task->cv_empty.notify_one(); 
+                create_bulk_file(m); 
             }
         }
         catch(const std::exception &e) {
@@ -97,16 +78,15 @@ struct WriteData : public Handler
         }     
     }
 
+    private:      
         std::string main_th_id;
-    private:
-        p_file_tasks task;
-        
+        std::shared_ptr<f_tasks_t> task;      
 };
 
 
 struct PrintData : public Handler
 {
-    PrintData(p_print_task task_, std::ostream& os_ = std::cout):task(task_), os(os_) {}
+    PrintData(std::shared_ptr<p_tasks_t> task_, std::ostream& os_ = std::cout):task(task_), os(os_) {}
 
     void start(void) override
     {
@@ -127,7 +107,7 @@ struct PrintData : public Handler
 
                 auto v = task->front();
                 task->pop();
-                if (task->size() <  (CIRCLE_BUFF_SIZE / 2)) task->cv_empty.notify_one();
+                if (task->size() <  (MAX_QUEUE_SIZE / 2)) task->cv_empty.notify_one();
                 lk.unlock();
                 
                 stream_out(v, os);
@@ -149,6 +129,6 @@ struct PrintData : public Handler
     }
 
 private:
-    p_print_task task;
+    std::shared_ptr<p_tasks_t> task;
     std::ostream& os;   
 };

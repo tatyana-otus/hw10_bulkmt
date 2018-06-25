@@ -27,11 +27,11 @@ void process(const char* cin_str, std::string main_th_id,
 
     std::shared_ptr<PrintData> data_log;
     std::vector<std::shared_ptr<WriteData>> file_log;
-  
-    auto  q_file  = std::make_shared<queue_wrapper<f_msg_type_ext>>();
-    auto  q_print = std::make_shared<queue_wrapper<p_data_type>>();
 
-    auto cmd = std::make_shared<Command>(N, q_file, q_print);
+    auto  q_file  = std::make_shared<f_tasks_t>();
+    auto  q_print = std::make_shared<p_tasks_t>();
+
+    auto cmd = std::make_unique<Command>(N, q_file, q_print);
 
     data_log = std::make_shared<PrintData>(q_print, os); 
     file_log.resize(file_th_cnt);

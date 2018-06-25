@@ -31,8 +31,8 @@ void check_metrics(size_t str_count, size_t cmd_count, size_t blk_count,
                    size_t file_th_cnt,
                    std::string id)
 {
-    auto  q_file  = std::make_shared<queue_wrapper<f_msg_type_ext>>();
-    auto  q_print = std::make_shared<queue_wrapper<p_data_type>>();
+    auto  q_file  = std::make_shared<f_tasks_t>();
+    auto  q_print = std::make_shared<p_tasks_t>();
 
     auto cmd = std::make_shared<Command>(N, q_file, q_print);
 
@@ -43,7 +43,6 @@ void check_metrics(size_t str_count, size_t cmd_count, size_t blk_count,
     for(size_t i = 0; i < file_th_cnt; ++i){
         file_log[i] = std::make_shared<WriteData>(q_file, id);
     }
-
 
     cmd->add_hanlder(data_log);
     for(auto& h : file_log){
