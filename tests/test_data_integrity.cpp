@@ -132,6 +132,8 @@ BOOST_AUTO_TEST_CASE(data_check)
     run_process(100, 3, 4);
 
     run_process(40000, 100, 2);
+
+    run_process(10000, 1, 2);
 }
 
 

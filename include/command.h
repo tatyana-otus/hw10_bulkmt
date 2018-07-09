@@ -33,7 +33,6 @@ struct Handler
         if(!v->empty()){
         
             ++blk_count;
-
             os << "bulk: " << *(v->cbegin());
             cmd_count += v->size();
             for (auto it = std::next(v->cbegin()); it != std::cend(*v); ++it){
@@ -261,8 +260,8 @@ public:
 
     void get_data(std::istream& is) {
 
-        start();
         try {  
+            start();
             for(std::string line; std::getline(is, line);){ 
                 if(line.size() > MAX_CMD_LENGTH){
                     std::string msg = "Invalid command length. Command length must be < " 
@@ -281,6 +280,20 @@ public:
         stop();
     }
 
+    auto get_str_count()
+    {
+        return str_count;
+    }
+
+    auto get_cmd_count()
+    {
+        return cmd_count;
+    }
+
+    auto get_blk_count()
+    {
+        return blk_count;
+    }
 
 private:
     size_t N;
@@ -296,8 +309,7 @@ private:
     size_t file_id;
 
     std::shared_ptr<data_type> cur_data;  
-
- public:   
+  
     size_t str_count;
     size_t cmd_count;
     size_t blk_count;

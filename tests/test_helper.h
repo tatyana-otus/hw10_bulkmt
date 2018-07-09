@@ -51,19 +51,19 @@ void check_metrics(size_t str_count, size_t cmd_count, size_t blk_count,
 
     cmd->get_data(iss);
 
-    BOOST_CHECK_EQUAL( cmd->str_count, str_count);
-    BOOST_CHECK_EQUAL( cmd->cmd_count, cmd_count);
-    BOOST_CHECK_EQUAL( cmd->blk_count, blk_count);
+    BOOST_CHECK_EQUAL( cmd->get_str_count(), str_count);
+    BOOST_CHECK_EQUAL( cmd->get_cmd_count(), cmd_count);
+    BOOST_CHECK_EQUAL( cmd->get_blk_count(), blk_count);
 
-    BOOST_CHECK_EQUAL( cmd->cmd_count, data_log->cmd_count);
-    BOOST_CHECK_EQUAL( cmd->blk_count, data_log->blk_count);
+    BOOST_CHECK_EQUAL( cmd->get_cmd_count(), data_log->cmd_count);
+    BOOST_CHECK_EQUAL( cmd->get_blk_count(), data_log->blk_count);
 
-    BOOST_CHECK_EQUAL( cmd->cmd_count, 
+    BOOST_CHECK_EQUAL( cmd->get_cmd_count(), 
                       std::accumulate(file_log.begin(), file_log.end(), 0, 
                                       [](int sum, auto p) {
                                         return sum + p->cmd_count;
                                        }));
-    BOOST_CHECK_EQUAL( cmd->blk_count, 
+    BOOST_CHECK_EQUAL( cmd->get_blk_count(), 
                       std::accumulate(file_log.begin(), file_log.end(), 0, 
                                      [](int sum, auto p) {
                                         return sum + p->blk_count;
